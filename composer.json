@@ -1,0 +1,24 @@
+{
+    "name": "codeaken/ansible",
+    "description": "Use PHP to run Ansible commands and playbooks",
+    "keywords": ["ansible", "playbook", "command"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Magnus Johansson",
+            "email": "magnus@codeaken.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "codeaken/sshkey": "@dev",
+        "codeaken/sshagent": "@dev",
+        "symfony/process": "2.5.*"
+    },
+    "autoload": {
+        "psr-0": {
+            "Codeaken\\Ansible\\": "src/"
+        }
+    },
+    "minimum-stability": "stable"
+}
