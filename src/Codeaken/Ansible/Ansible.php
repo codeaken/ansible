@@ -1,6 +1,7 @@
 <?php
 namespace Codeaken\Ansible;
 
+use Codeaken\Ansible\Exception\PlaybookException;
 use Symfony\Component\Process\ProcessBuilder;
 
 class Ansible
@@ -109,6 +110,10 @@ class Ansible
         // Create the process and run it
         $ansible = $builder->getProcess();
         $ansible->run();
+
+        if ( ! $ansible->isSuccessful()) {
+            throw new PlaybookException($ansible);
+        }
 
         unlink($tmpInventory);
         unlink($tmpAnsibleCfg);
