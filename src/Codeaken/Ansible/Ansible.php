@@ -26,8 +26,7 @@ class Ansible
             $hosts = [$hosts];
         }
 
-        $tmpInventory  = $this->saveInventory();
-        $tmpAnsibleCfg = $this->saveAnsibleCfg();
+        $paths = $this->createHome();
 
         $results = [];
         foreach ($hosts as $host) {
@@ -37,17 +36,16 @@ class Ansible
             $builder = new ProcessBuilder([
                 'ansible',
                 $host,
-                '--inventory-file', $tmpInventory,
+                '--inventory-file', $paths['inventory'],
                 '--module-name', 'command',
                 '--args', $command
             ]);
 
-            $this->setEnv($builder, $tmpAnsibleCfg);
+            $this->setEnv($builder, $paths);
             $this->setAuth($builder, $inventoryHost);
 
             // Create the process and run it
             $ansible = $builder->getProcess();
-            //var_dump($ansible);
             $ansible->run();
 
             // Prepare the results of the run
@@ -83,16 +81,14 @@ class Ansible
             $results[$host] = $result;
         }
 
-        unlink($tmpInventory);
-        unlink($tmpAnsibleCfg);
+        $this->deleteHome($paths['home']);
 
         return $results;
     }
 
     public function runPlaybook($playbook, $host)
     {
-        $tmpInventory  = $this->saveInventory();
-        $tmpAnsibleCfg = $this->saveAnsibleCfg();
+        $paths = $this->createHome();
 
         $inventoryHost = $this->inventory->getHostByName($host);
 
@@ -100,11 +96,11 @@ class Ansible
         $builder = new ProcessBuilder([
             'ansible-playbook',
             $playbook,
-            '--inventory-file',  $tmpInventory,
+            '--inventory-file',  $paths['inventory'],
             '--limit', $host
         ]);
 
-        $this->setEnv($builder, $tmpAnsibleCfg);
+        $this->setEnv($builder, $paths);
         $this->setAuth($builder, $inventoryHost);
 
         // Create the process and run it
@@ -115,20 +111,19 @@ class Ansible
             throw new PlaybookException($ansible);
         }
 
-        unlink($tmpInventory);
-        unlink($tmpAnsibleCfg);
+        $this->deleteHome($paths['home']);
 
         return $ansible->getOutput();
     }
 
-    private function setEnv(&$builder, $ansibleCfgPath)
+    private function setEnv(&$builder, $paths)
     {
         // Path to the temporary configuration file we saved earlier
-        $builder->setEnv('ANSIBLE_CONFIG', $ansibleCfgPath);
+        $builder->setEnv('ANSIBLE_CONFIG', $paths['ansiblecfg']);
 
         // Temporary home since normally the user we are executing under
         // does not have a home directory set
-        $builder->setEnv('HOME', '/tmp');
+        $builder->setEnv('HOME', $paths['home']);
     }
 
     private function setAuth(&$builder, $host)
@@ -156,33 +151,57 @@ class Ansible
         }
     }
 
-    private function saveInventory()
+    private function createHome()
     {
-        $tmpInventoy = tempnam(sys_get_temp_dir(), 'codeaken_ansible_inv_');
-        $this->inventory->save($tmpInventoy);
+        // Create the home directory
+        $tmpFile = tempnam(sys_get_temp_dir(), 'codeaken_ansible_');
 
-        return $tmpInventoy;
-    }
+        if (file_exists($tmpFile)) {
+            unlink($tmpFile);
+        }
 
-    private function saveAnsibleCfg()
-    {
-        $tmpAnsibleCfg = tempnam(sys_get_temp_dir(), 'codeaken_ansible_cfg_');
+        $tmpDir = $tmpFile;   // Just so to make the following code clearer
 
-        // Combine the arguments
+        mkdir($tmpDir, 0700);
+
+        // Save the ansible configuration
         $sshArgs = [];
         foreach ($this->sshArgs as $arg => $value) {
             $sshArgs[] = "-o {$arg}={$value}";
         }
 
-        // Build the lines of the config file
         $ansibleCfg = [
             '[ssh_connection]',
             'ssh_args=' . implode(' ', $sshArgs),
             'pipelining=True',
         ];
 
-        file_put_contents($tmpAnsibleCfg, implode("\n", $ansibleCfg));
+        file_put_contents("{$tmpDir}/ansible.cfg", implode("\n", $ansibleCfg));
 
-        return $tmpAnsibleCfg;
+        // Save the inventory
+        $this->inventory->save("{$tmpDir}/inventory.ini");
+
+        return [
+            'home'       => $tmpDir,
+            'inventory'  => "{$tmpDir}/inventory.ini",
+            'ansiblecfg' => "{$tmpDir}/ansible.cfg",
+        ];
+    }
+
+    private function deleteHome($dir)
+    {
+        $files = array_diff(scandir($dir), ['.', '..']);
+
+        foreach ($files as $file) {
+            $currPath = "{$dir}/{$file}";
+
+            if (is_dir($currPath)) {
+                $this->deleteHome($currPath);
+            } else {
+                unlink($currPath);
+            }
+        }
+
+        return rmdir($dir);
     }
 }
