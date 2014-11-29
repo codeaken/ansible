@@ -21,12 +21,15 @@ class Inventory
 
     public function save($filename)
     {
+        $lines = [];
         foreach ($this->hosts as $host) {
             $name       = $host->getName();
             $ip         = 'ansible_ssh_host=' . $host->getIp();
             $remoteUser = 'ansible_ssh_user=' . $host->getAuth()->getRemoteUser();
 
-            file_put_contents($filename, "$name $ip $remoteUser\n",  FILE_APPEND);
+            $lines[] = "$name $ip $remoteUser";
         }
+
+        file_put_contents($filename, implode("\n", $lines));
     }
 }
