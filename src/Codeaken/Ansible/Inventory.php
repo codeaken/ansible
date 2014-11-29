@@ -5,6 +5,14 @@ class Inventory
 {
     private $hosts = [];
 
+    static public function single($name, $ip, AuthMethod $authMethod)
+    {
+        $inventory = new Inventory();
+        $inventory->addHost($name, $ip, $authMethod);
+
+        return $inventory;
+    }
+
     public function addHost($name, $ip, AuthMethod $authMethod)
     {
         $this->hosts[$name] = new Inventory\Host($name, $ip, $authMethod);
