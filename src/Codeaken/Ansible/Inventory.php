@@ -1,26 +1,22 @@
 <?php
 namespace Codeaken\Ansible;
 
-use Codeaken\Ansible\Inventory\Host;
-
 class Inventory
 {
     private $hosts = [];
 
-    public function addHost(Host $host)
+    public function addHost($name, $ip, AuthMethod $authMethod)
     {
-        $this->hosts[] = $host;
+        $this->hosts[$name] = new Inventory\Host($name, $ip, $authMethod);
     }
 
     public function getHostByName($name)
     {
-        foreach ($this->hosts as $host) {
-            if ($host->getName() == $name) {
-                return $host;
-            }
+        if ( ! isset($this->hosts[$name])) {
+            return false;
         }
 
-        return false;
+        return $this->hosts[$name];
     }
 
     public function save($filename)
