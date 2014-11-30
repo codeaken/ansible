@@ -33,6 +33,12 @@ class Ansible
         $this->hosts = $hosts;
     }
 
+    public function reset()
+    {
+        $this->extraVars = [];
+        $this->hosts     = [];
+    }
+
     public function runCommand($command)
     {
         $paths = $this->createHome();
