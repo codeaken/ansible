@@ -3,13 +3,15 @@ namespace Codeaken\Ansible\Exception;
 
 class PlaybookException extends \Exception
 {
-    const GENERAL_ERROR = 1;
-    const NOT_FOUND     = 2;
-    const SYNTAX_ERROR  = 3;
+    const GENERAL_ERROR      = 1;
+    const NOT_FOUND          = 2;
+    const SYNTAX_ERROR       = 3;
+    const UNDEFINED_VARIABLE = 4;
 
-    const GENERAL_ERROR_MSG = 'A general error occured while running the playbook';
-    const NOT_FOUND_MSG     = 'The playbook was not found';
-    const SYNTAX_ERROR_MSG  = 'There is a syntax error in the playbook';
+    const GENERAL_ERROR_MSG      = 'A general error occured while running the playbook';
+    const NOT_FOUND_MSG          = 'The playbook was not found';
+    const SYNTAX_ERROR_MSG       = 'There is a syntax error in the playbook';
+    const UNDEFINED_VARIABLE_MSG = 'One or more undefined variables';
 
     private $process;
 
@@ -36,6 +38,9 @@ class PlaybookException extends \Exception
         } else if (false !== strpos($error, 'Syntax Error while loading YAML script')) {
             $code    = self::SYNTAX_ERROR;
             $message = self::SYNTAX_ERROR_MSG;
+        } else if (false !== strpos($error, 'One or more undefined variables')) {
+            $code    = self::UNDEFINED_VARIABLE;
+            $message = self::UNDEFINED_VARIABLE_MSG;
         } else {
             $code    = self::GENERAL_ERROR;
             $message = self::GENERAL_ERROR_MSG;
