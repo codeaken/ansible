@@ -17,23 +17,31 @@ class PlaybookException extends \Exception
     {
         $this->process = $process;
 
-        // Figure out what specific error occured
+        $code    = 0;
+        $message = '';
+
+        // Not all of the ansible errors have output in stderr. Therefore, if
+        // stderr is empty we will use the stdout output instead to get clues
+        // on what the actual error was.
         $error = $process->getErrorOutput();
 
-        if (false !== strpos($error, 'the playbook') &&
-            false !== strpos($error, 'could not be found')
-        ) {
-
-            parent::__construct(self::NOT_FOUND_MSG, self::NOT_FOUND);
-
-        } else if (false !== strpos($error, 'Syntax Error while loading YAML script')) {
-
-            parent::__construct(self::SYNTAX_ERROR_MSG, self::SYNTAX_ERROR);
-
-        } else {
-
-            parent::__construct(self::GENERAL_ERROR_MSG, self::GENERAL_ERROR);
+        if (is_null($error)) {
+            $error = $process->getOutput();
         }
+
+        // Figure out the specific error that occured
+        if (false !== strpos($error, 'the playbook') && false !== strpos($error, 'could not be found')) {
+            $code    = self::NOT_FOUND;
+            $message = self::NOT_FOUND_MSG;
+        } else if (false !== strpos($error, 'Syntax Error while loading YAML script')) {
+            $code    = self::SYNTAX_ERROR;
+            $message = self::SYNTAX_ERROR_MSG;
+        } else {
+            $code    = self::GENERAL_ERROR;
+            $message = self::GENERAL_ERROR_MSG;
+        }
+
+        parent::__construct($message, $code);
     }
 
     public function getProcess()
