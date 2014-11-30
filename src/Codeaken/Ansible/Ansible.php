@@ -8,6 +8,7 @@ class Ansible
 {
     private $inventory;
     private $extraVars = [];
+    private $hosts = [];
 
     private $sshArgs = [
         'StrictHostKeyChecking' => 'no',
@@ -26,16 +27,18 @@ class Ansible
         $this->extraVars = $extraVars;
     }
 
-    public function runCommand($command, $hosts)
+    public function setHosts(array $hosts)
     {
-        if ( ! is_array($hosts)) {
-            $hosts = [$hosts];
-        }
+        // @todo Validate that the hosts are in the inventory
+        $this->hosts = $hosts;
+    }
 
+    public function runCommand($command)
+    {
         $paths = $this->createHome();
 
         $results = [];
-        foreach ($hosts as $host) {
+        foreach ($this->hosts as $host) {
             $inventoryHost = $this->inventory->getHostByName($host);
 
             // Build the command we are going to run
@@ -92,16 +95,12 @@ class Ansible
         return $results;
     }
 
-    public function runPlaybook($playbook, $hosts)
+    public function runPlaybook($playbook)
     {
-        if ( ! is_array($hosts)) {
-            $hosts = [$hosts];
-        }
-
         $paths = $this->createHome();
 
         $results = [];
-        foreach ($hosts as $host) {
+        foreach ($this->hosts as $host) {
             $inventoryHost = $this->inventory->getHostByName($host);
 
             // Build the command we are going to run
