@@ -92,39 +92,48 @@ class Ansible
         return $results;
     }
 
-    public function runPlaybook($playbook, $host)
+    public function runPlaybook($playbook, $hosts)
     {
-        $paths = $this->createHome();
-
-        $inventoryHost = $this->inventory->getHostByName($host);
-
-        // Build the command we are going to run
-        $builder = new ProcessBuilder([
-            'ansible-playbook',
-            $playbook,
-            '--inventory-file',  $paths['inventory'],
-            '--limit', $host
-        ]);
-
-        $this->setEnv($builder, $paths);
-        $this->setAuth($builder, $inventoryHost);
-
-        if (count($this->extraVars)) {
-            $builder->add('--extra-vars');
-            $builder->add(json_encode($this->extraVars));
+        if ( ! is_array($hosts)) {
+            $hosts = [$hosts];
         }
 
-        // Create the process and run it
-        $ansible = $builder->getProcess();
-        $ansible->run();
+        $paths = $this->createHome();
 
-        if ( ! $ansible->isSuccessful()) {
-            throw new PlaybookException($ansible);
+        $results = [];
+        foreach ($hosts as $host) {
+            $inventoryHost = $this->inventory->getHostByName($host);
+
+            // Build the command we are going to run
+            $builder = new ProcessBuilder([
+                'ansible-playbook',
+                $playbook,
+                '--inventory-file',  $paths['inventory'],
+                '--limit', $host
+            ]);
+
+            $this->setEnv($builder, $paths);
+            $this->setAuth($builder, $inventoryHost);
+
+            if (count($this->extraVars)) {
+                $builder->add('--extra-vars');
+                $builder->add(json_encode($this->extraVars));
+            }
+
+            // Create the process and run it
+            $ansible = $builder->getProcess();
+            $ansible->run();
+
+            if ( ! $ansible->isSuccessful()) {
+                throw new PlaybookException($ansible);
+            }
+
+            $results[$host] = $ansible->getOutput();
         }
 
         $this->deleteHome($paths['home']);
 
-        return $ansible->getOutput();
+        return $results;
     }
 
     private function setEnv(&$builder, $paths)
