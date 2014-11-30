@@ -7,6 +7,8 @@ use Symfony\Component\Process\ProcessBuilder;
 class Ansible
 {
     private $inventory;
+    private $extraVars = [];
+    private $hosts = [];
 
     private $sshArgs = [
         'StrictHostKeyChecking' => 'no',
@@ -20,16 +22,29 @@ class Ansible
         $this->inventory = $inventory;
     }
 
-    public function runCommand($command, $hosts)
+    public function setExtraVars(array $extraVars)
     {
-        if ( ! is_array($hosts)) {
-            $hosts = [$hosts];
-        }
+        $this->extraVars = $extraVars;
+    }
 
+    public function setHosts(array $hosts)
+    {
+        // @todo Validate that the hosts are in the inventory
+        $this->hosts = $hosts;
+    }
+
+    public function reset()
+    {
+        $this->extraVars = [];
+        $this->hosts     = [];
+    }
+
+    public function runCommand($command)
+    {
         $paths = $this->createHome();
 
         $results = [];
-        foreach ($hosts as $host) {
+        foreach ($this->hosts as $host) {
             $inventoryHost = $this->inventory->getHostByName($host);
 
             // Build the command we are going to run
@@ -86,34 +101,44 @@ class Ansible
         return $results;
     }
 
-    public function runPlaybook($playbook, $host)
+    public function runPlaybook($playbook)
     {
         $paths = $this->createHome();
 
-        $inventoryHost = $this->inventory->getHostByName($host);
+        $results = [];
+        foreach ($this->hosts as $host) {
+            $inventoryHost = $this->inventory->getHostByName($host);
 
-        // Build the command we are going to run
-        $builder = new ProcessBuilder([
-            'ansible-playbook',
-            $playbook,
-            '--inventory-file',  $paths['inventory'],
-            '--limit', $host
-        ]);
+            // Build the command we are going to run
+            $builder = new ProcessBuilder([
+                'ansible-playbook',
+                $playbook,
+                '--inventory-file',  $paths['inventory'],
+                '--limit', $host
+            ]);
 
-        $this->setEnv($builder, $paths);
-        $this->setAuth($builder, $inventoryHost);
+            $this->setEnv($builder, $paths);
+            $this->setAuth($builder, $inventoryHost);
 
-        // Create the process and run it
-        $ansible = $builder->getProcess();
-        $ansible->run();
+            if (count($this->extraVars)) {
+                $builder->add('--extra-vars');
+                $builder->add(json_encode($this->extraVars));
+            }
 
-        if ( ! $ansible->isSuccessful()) {
-            throw new PlaybookException($ansible);
+            // Create the process and run it
+            $ansible = $builder->getProcess();
+            $ansible->run();
+
+            if ( ! $ansible->isSuccessful()) {
+                throw new PlaybookException($ansible);
+            }
+
+            $results[$host] = $ansible->getOutput();
         }
 
         $this->deleteHome($paths['home']);
 
-        return $ansible->getOutput();
+        return $results;
     }
 
     private function setEnv(&$builder, $paths)
