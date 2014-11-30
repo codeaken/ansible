@@ -7,6 +7,7 @@ use Symfony\Component\Process\ProcessBuilder;
 class Ansible
 {
     private $inventory;
+    private $extraVars = [];
 
     private $sshArgs = [
         'StrictHostKeyChecking' => 'no',
@@ -18,6 +19,11 @@ class Ansible
     public function __construct($inventory)
     {
         $this->inventory = $inventory;
+    }
+
+    public function setExtraVars(array $extraVars)
+    {
+        $this->extraVars = $extraVars;
     }
 
     public function runCommand($command, $hosts)
@@ -102,6 +108,11 @@ class Ansible
 
         $this->setEnv($builder, $paths);
         $this->setAuth($builder, $inventoryHost);
+
+        if (count($this->extraVars)) {
+            $builder->add('--extra-vars');
+            $builder->add(json_encode($this->extraVars));
+        }
 
         // Create the process and run it
         $ansible = $builder->getProcess();
