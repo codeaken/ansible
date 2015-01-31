@@ -2,10 +2,12 @@
 namespace Codeaken\Ansible;
 
 use Codeaken\Ansible\Exception\PlaybookException;
+use Codeaken\SshAgent\SshAgent;
 use Symfony\Component\Process\ProcessBuilder;
 
 class Ansible
 {
+    private $sshAgent;
     private $inventory;
     private $extraVars = [];
     private $hosts = [];
@@ -19,6 +21,7 @@ class Ansible
 
     public function __construct($inventory)
     {
+        $this->sshAgent = new SshAgent();
         $this->inventory = $inventory;
     }
 
@@ -156,9 +159,15 @@ class Ansible
         $authMethod = $host->getAuth();
 
         switch ($host->getAuth()->getMethodName()) {
-            case 'sshagent':
+            case 'key':
+                if ( ! $this->sshAgent->isRunning()) {
+                    $this->sshAgent->start();
+                }
+
+                $this->sshAgent->addKey($authMethod->getKey());
+
                 $builder->setEnv(
-                    'SSH_AUTH_SOCK', $authMethod->getSocket()
+                    'SSH_AUTH_SOCK', $this->sshAgent->getSocket()
                 );
                 break;
 
