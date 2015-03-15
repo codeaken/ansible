@@ -130,6 +130,7 @@ class Ansible
 
             // Create the process and run it
             $ansible = $builder->getProcess();
+            $ansible->setTimeout(900);  // 15m
             $ansible->run();
 
             if ( ! $ansible->isSuccessful()) {
