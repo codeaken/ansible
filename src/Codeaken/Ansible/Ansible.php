@@ -3,10 +3,15 @@ namespace Codeaken\Ansible;
 
 use Codeaken\Ansible\Exception\PlaybookException;
 use Codeaken\SshAgent\SshAgent;
+use Codeaken\Emitter\EmitterTrait;
+use Codeaken\Emitter\EmitterInterface;
 use Symfony\Component\Process\ProcessBuilder;
+use Symfony\Component\Process\Process;
 
-class Ansible
+class Ansible implements EmitterInterface
 {
+    use EmitterTrait;
+
     private $sshAgent;
     private $inventory;
     private $extraVars = [];
@@ -116,6 +121,7 @@ class Ansible
             $builder = new ProcessBuilder([
                 'ansible-playbook',
                 $playbook,
+                '-v',
                 '--inventory-file',  $paths['inventory'],
                 '--limit', $host
             ]);
@@ -131,7 +137,70 @@ class Ansible
             // Create the process and run it
             $ansible = $builder->getProcess();
             $ansible->setTimeout(900);  // 15m
-            $ansible->run();
+
+            $that = $this;
+            $output = '';
+            $seenRoles = [];
+
+            $ansible->run(function ($type, $buffer) use ($that, &$output, &$seenRoles) {
+                if (Process::OUT == $type) {
+                    $output .= $buffer;
+
+                    // Find all complete task blocks
+                    $blockMatches = [];
+                    preg_match_all(
+                        '/(?<action>TASK|NOTIFIED)(?<block>.*?)(?<=\})\n{2}/s',
+                        $output,
+                        $blockMatches,
+                        PREG_SET_ORDER
+                    );
+
+                    foreach ($blockMatches as $blockMatch) {
+                        $taskBlock = $blockMatch['action'] . $blockMatch['block'];
+
+                        // Get the task info
+                        preg_match(
+                            '/^(?<action>TASK|NOTIFIED):\s+\[(?<role>.*)\s+\|\s+(?<task>.*)\].*$/m',
+                            $taskBlock,
+                            $taskMatch
+                        );
+
+                        $action = $taskMatch['action'];
+                        $role   = $taskMatch['role'];
+                        $task   = $taskMatch['task'];
+
+                        // Emit if this is a new role
+                        if (!in_array($role, $seenRoles)) {
+                            $seenRoles[] = $role;
+                            $this->emit('role', $role);
+                        }
+
+                        // Emit the task we found
+                        $this->emit(strtolower($action), $role, $task);
+
+                        // Get the items executed
+                        preg_match_all(
+                            '/(?<status>ok|changed|failed):\s+\[(?<host>\w*)\](?:\s+=>\s+\(item=(?<item>.*?)\))?\s+=>\s+\{(?<details>.*?)\}/s',
+                            $taskBlock,
+                            $itemMatches,
+                            PREG_SET_ORDER
+                        );
+
+                        foreach ($itemMatches as $itemMatch) {
+                            $status  = $itemMatch['status'];
+                            $host    = $itemMatch['host'];
+                            $item    = $itemMatch['item'];
+                            $details = json_decode('{' . $itemMatch['details'] . '}', true);
+
+                            // Emit this item
+                            $this->emit('item', strtolower($action), $role, $task, $status, $host, $item, $details);
+                        }
+
+                        // Remove this block from the input
+                        $output = str_replace($taskBlock, '', $output);
+                    }
+                }
+            });
 
             if ( ! $ansible->isSuccessful()) {
                 throw new PlaybookException($ansible);
