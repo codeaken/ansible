@@ -60,7 +60,7 @@ class Ansible implements EmitterInterface
                 'ansible',
                 $host,
                 '--inventory-file', $paths['inventory'],
-                '--module-name', 'command',
+                '--module-name', 'shell',
                 '--args', $command
             ]);
 
