@@ -60,7 +60,7 @@ class Inventory
         $lines=[];
         foreach($this->hostGroups as $groupName=>$groups) {
 
-            if($groupName!='default') $lines[]="[$groupName]";
+            if($groupName!='default' && count($groups['host'])) $lines[]="[$groupName]";
 
             foreach ($groups['host'] as $item) {
                 $host = $this->getHostByName($item['name']);
@@ -71,7 +71,7 @@ class Inventory
                 $lines[] = "$name $ip $remoteUser";
             }
 
-            if(isset($groups['group']))  $lines[]= "[$groupName:children]";
+            if(isset($groups['group']) && count($groups['host']) )  $lines[]= "[$groupName:children]";
 
             foreach ($groups['group'] as $item) {
                 $lines[]=$item['name'];
