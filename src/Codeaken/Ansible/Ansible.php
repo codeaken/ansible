@@ -159,7 +159,7 @@ class Ansible implements EmitterInterface
 
                         // Get the task info
                         preg_match(
-                            '/^(?<action>TASK|NOTIFIED):\s+\[(?:(?<role>.*)\s+\|\s+)?(?<task>.*)\].*$/m',
+                            '/^(?<action>TASK|NOTIFIED)\s+\[(?:(?<role>.*)\s+\:\s+)?(?<task>.*)\].*$/m',
                             $taskBlock,
                             $taskMatch
                         );
