@@ -71,7 +71,7 @@ class Inventory
                 $lines[] = "$name $ip $remoteUser";
             }
 
-            if(isset($groups['group'])) "[$groupName:children]";
+            if(isset($groups['group']))  $lines[]= "[$groupName:children]";
 
             foreach ($groups['group'] as $item) {
                 $lines[]=$item['name'];
