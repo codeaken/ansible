@@ -16,7 +16,9 @@ class Ansible implements EmitterInterface
     private $inventory;
     private $extraVars = [];
     private $hosts = [];
-
+    private $timeout = 900; // 15min
+    private $idleTimeout = 60; // 1 min
+    
     private $sshArgs = [
         'StrictHostKeyChecking' => 'no',
         'ControlMaster'         => 'auto',
@@ -35,6 +37,16 @@ class Ansible implements EmitterInterface
         $this->extraVars = $extraVars;
     }
 
+     /**
+     * @param int $timeout in seconds
+     * @param int $idleTimeout in seconds
+     */
+    public function setTimeouts($timeout,$idleTimeout=60)
+    {
+        $this->timeout=$timeout;
+        $this->idleTimeout=$idleTimeout;
+    }
+
     public function setHosts(array $hosts)
     {
         // @todo Validate that the hosts are in the inventory
@@ -45,6 +57,8 @@ class Ansible implements EmitterInterface
     {
         $this->extraVars = [];
         $this->hosts     = [];
+        $this->timeout = 900;
+        $this->idleTimeout = 60;
     }
 
     public function runCommand($command)
@@ -136,7 +150,8 @@ class Ansible implements EmitterInterface
 
             // Create the process and run it
             $ansible = $builder->getProcess();
-            $ansible->setTimeout(900);  // 15m
+            $ansible->setTimeout($this->timeout);
+            $ansible->setIdleTimeout($this->idleTimeout);
 
             $that = $this;
             $output = '';
@@ -159,7 +174,7 @@ class Ansible implements EmitterInterface
 
                         // Get the task info
                         preg_match(
-                            '/^(?<action>TASK|NOTIFIED):\s+\[(?:(?<role>.*)\s+\|\s+)?(?<task>.*)\].*$/m',
+                            '/^(?<action>TASK|NOTIFIED)\s+\[(?:(?<role>.*)\s+\:\s+)?(?<task>.*)\].*$/m',
                             $taskBlock,
                             $taskMatch
                         );
